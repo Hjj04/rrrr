@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RRRR: Rapid Real-World Residual RL for Multi-Task VLA Adaptation</title>
+<meta name="description" content="RRRR couples fast residual adaptation of frozen VLA backbones on real robots with residual-guided consolidation of successful rollouts into one shared multi-task VLA.">
+<script>
+  window.MathJax = {
+    loader: { load: ['[tex]/html'] },
+    tex: { packages: { '[+]': ['html'] }, inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']] },
+    svg: { fontCache: 'global' },
+    options: { enableMenu: false }
+  };
+</script>
+<script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>
+<link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+
+<a class="skip-link" href="#results">Skip to research</a><nav class="topbar" aria-label="Primary navigation"><a class="wordmark" href="#top">RRRR<span>Robot Learning</span></a><div>
+<a href="#video">Video</a><a href="#method">Method</a><a href="#single">Experiments</a><a href="#citation">Citation</a>
+</div>
+<a class="nav-paper" href="assets/RRRR.pdf" target="_blank" rel="noopener">Paper <i data-lucide="arrow-up-right"></i></a></nav><header class="masthead" id="top">
+  <div class="title-block">
+    <p class="eyebrow">Vision-language-action models / Residual reinforcement learning</p>
+    <h1>RRRR</h1>
+    <p class="paper-title">Rapid Real-World Residual RL<br>for Multi-Task VLA Adaptation</p>
+    <p class="authors">Anonymous authors</p>
+    <p class="lede">Fast corrections on the robot. <br>Shared experience in a standalone VLA.</p>
+    <nav class="links" aria-label="Project resources">
+      <a class="btn primary" href="assets/RRRR.pdf" target="_blank" rel="noopener"><i data-lucide="file-text"></i> Paper <i data-lucide="arrow-up-right"></i></a>
+      <a class="btn" href="#video"><i data-lucide="play"></i> Video</a>
+      <button class="btn code-pending" type="button" disabled title="Code coming soon"><i data-lucide="code-2"></i> Code <span>Coming soon</span></button>
+      <a class="btn" href="#citation"><i data-lucide="quote"></i> Citation</a>
+    </nav>
+  </div>
+  <div class="experiment-strip" aria-label="Four real-world manipulation tasks">
+    <figure><img src="assets/task-weight-ppt.png" width="556" height="417" alt="Franka robot aligning a weight with its insertion target"><figcaption><span>01</span> Weight insertion</figcaption></figure>
+    <figure><img src="assets/task-tissue-ppt.png" width="556" height="417" alt="Franka robot extracting a tissue from its container"><figcaption><span>02</span> Tissue extraction</figcaption></figure>
+    <figure><img src="assets/task-balance-ppt.png" width="556" height="417" alt="Franka robot carrying a weight toward the balance"><figcaption><span>03</span> Balance placement</figcaption></figure>
+    <figure><img src="assets/task-toy-ppt.png" width="496" height="372" alt="Franka robot suspending a toy from the shelf"><figcaption><span>04</span> Toy suspension</figcaption></figure>
+  </div>
+  <div class="headline-results">
+    <a href="#single"><strong>91.25<span>%</span></strong><span>Real-world residual adaptation</span><small>4 tasks · both VLA backbones</small></a>
+    <a href="#multitask"><strong>85<span>%</span></strong><span>Standalone shared VLA</span><small>vs. 23.75% with uniform weighting</small></a>
+    <a href="#libero"><strong>91.80<span>%</span></strong><span>LIBERO joint training</span><small>Custom 25-task evaluation</small></a>
+  </div>
+  <section class="video-section" id="video" aria-labelledby="video-title">
+    <div class="video-heading">
+<div>
+<p class="section-kicker">Research film</p>
+<h2 id="video-title">RRRR in action</h2>
+</div>
+<span class="duration">02:59 / Method &amp; experiments</span>
+</div>
+    <div class="video-frame"><video id="vid" controls playsinline preload="metadata" poster="assets/video-poster.jpg" aria-label="RRRR narrated supplementary video"><source src="assets/RRRR.mp4" type="video/mp4">Your browser cannot play this video. <a href="assets/RRRR.mp4">Download the MP4</a>.</source></video></div>
+    <nav class="chapters" aria-label="Video chapters">
+      <button type="button" data-time="0"><span>00:00</span> Overview</button>
+      <button type="button" data-time="25"><span>00:25</span> Residual adaptation</button>
+      <button type="button" data-time="95"><span>01:35</span> Shared-model training</button>
+      <button type="button" data-time="115"><span>01:55</span> Real-world experiments</button>
+      <button type="button" data-time="145"><span>02:25</span> Multi-task evaluation</button>
+      <button type="button" data-time="170"><span>02:50</span> Bimanual transfer</button>
+    </nav>
+    <p id="video-status" class="status" role="status"></p>
+  </section>
+</header><div class="layout">
+  <nav class="rail" aria-label="Sections">
+    <a href="#video" id="rail-video">Video</a>
+    <a href="#results">Main results</a>
+    <a href="#abstract">Abstract</a>
+    <a href="#method">Method</a>
+    <a href="#single">Single-task</a>
+    <a href="#ablation">Ablation</a>
+    <a href="#multitask">Multi-task</a>
+    <a href="#embodiment">Cross-embodiment</a>
+    <a href="#limitations">Limitations</a>
+    <a href="#citation">Citation</a>
+    </nav>
+
+  <main>
+    <!-- ========== MAIN RESULTS ========== -->
+    <section id="results">
+      <p class="section-kicker">01 / Evidence</p>
+<h2>Main results</h2>
+      <p class="tbl-cap">Average success rate (%) across the evaluation settings in the paper. Residual training reaches the evaluated real-world checkpoints after 3.15–27.30 min.</p>
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="Main results table">
+        <table class="summary">
+          <thead>
+            <tr>
+<th>Setting</th>
+<th style="text-align:left">Compared against</th>
+<th>Reference</th>
+<th>RRRR</th>
+<th>Details</th>
+</tr>
+          </thead>
+          <tbody>
+            <tr>
+<td>Task-specific OpenVLA-OFT<span class="sub2">4 Franka tasks, 20 trials each</span><span class="sub2 m-only">vs. LoRA-SFT VLA</span>
+</td>
+<td style="text-align:left">LoRA-SFT VLA</td>
+<td>0.00</td>
+<td class="best">91.25</td>
+<td><a href="#single">Table I</a></td>
+</tr>
+            <tr>
+<td>Task-specific π<sub>0.5</sub><span class="sub2">4 Franka tasks, 20 trials each</span><span class="sub2 m-only">vs. LoRA-SFT VLA</span>
+</td>
+<td style="text-align:left">LoRA-SFT VLA</td>
+<td>45.00</td>
+<td class="best">91.25</td>
+<td><a href="#single">Table I</a></td>
+</tr>
+            <tr>
+<td>Shared π<sub>0.5</sub>, consolidated<span class="sub2">4 Franka tasks, 20 trials each</span><span class="sub2 m-only">vs. same rollouts, uniform weights</span>
+</td>
+<td style="text-align:left">Same rollouts, uniform weights</td>
+<td>23.75</td>
+<td class="best">85.00</td>
+<td><a href="#multitask">Table III(a)</a></td>
+</tr>
+            <tr>
+<td>LIBERO-25, joint training<span class="sub2">200 episodes per task</span><span class="sub2 m-only">vs. PLD, strongest baseline</span>
+</td>
+<td style="text-align:left">PLD, strongest baseline</td>
+<td>87.52</td>
+<td class="best">91.80</td>
+<td><a href="#libero">Table III(b)</a></td>
+</tr>
+            <tr>
+<td>ZERITH H1, snack retrieval<span class="sub2">20 trials</span><span class="sub2 m-only">vs. frozen base VLA</span>
+</td>
+<td style="text-align:left">Frozen base VLA</td>
+<td>0.00</td>
+<td class="best">75.00</td>
+<td><a href="#embodiment">Figure 3</a></td>
+</tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========== ABSTRACT ========== -->
+    <section id="abstract">
+      <p class="section-kicker">02 / Abstract</p>
+<h2>Abstract</h2>
+      <p>Vision-Language-Action (VLA) foundation models generalize across a broad range of manipulation tasks, yet reliable real-world deployment often requires further adaptation to task-specific dynamics. We study two complementary post-training settings: rapid residual adaptation of independently task-tuned policies and consolidation of task-specific interaction experience into one shared multi-task model. To this end, we propose <strong>RRRR</strong> (<strong>R</strong>apid <strong>R</strong>eal-World <strong>R</strong>esidual <strong>R</strong>L), a plug-and-play framework that couples task-specific residual adaptation of frozen VLA backbones with residual-guided consolidation of successful rollouts into a standalone shared VLA.</p>
+      <p>For task-specific adaptation, a high-frequency residual policy provides closed-loop corrections to low-frequency VLA action chunks, is optimized with a unified imitation learning (IL) and reinforcement learning (RL) objective, and can incorporate auxiliary feedback such as force feedback and estimated depth maps. For shared multi-task consolidation, task-specific residual policies are trained on a frozen mixed-task SFT backbone, and the executed residual scales recorded along successful rollouts are used as sample-level weights when fine-tuning the shared VLA.</p>
+      <p>On four real-world manipulation tasks, residual adaptation raises the average success rates of task-specific OpenVLA-OFT and π<sub>0.5</sub> backbones from 0.00% and 45.00% to 91.25%, respectively; the evaluated checkpoints are reached after 3.15–27.30 min of residual training in our setup. Weighted consolidation attains 85.00% average success, compared with 23.75% when the same rollouts are trained with uniform weights. On a custom 25-task LIBERO joint-training setting, RRRR reaches 91.80% average success, exceeding two representative RL-based data-generation baselines by 6.64 and 4.28 percentage points.</p>
+    </section>
+
+    <!-- ========== METHOD ========== -->
+    <section id="method">
+      <p class="section-kicker">03 / Framework</p>
+<h2>From residual correction to a shared VLA</h2>
+      <p>RRRR treats real-world adaptation as residual compensation rather than further modification of the base model. One mechanism serves two settings: correcting a VLA that was fine-tuned for a single task, and folding the experience of many such corrections back into one shared multi-task VLA.</p>
+
+      <figure>
+        <div class="plate">
+          <button class="figbtn" type="button" data-zoom aria-label="Enlarge Figure 1">
+            <img src="assets/figure-1.webp" width="2600" height="1425" alt="Overview diagram of RRRR. Stage I: a fast path fuses RGB-D, force and proprioception through a FiLM step-aware encoder into a residual actor, whose action is multiplied by a dynamic residual scale and added to base actions from a frozen pre-trained VLA's action chunk; training mixes an online buffer and an expert buffer with HIL corrections and teleoperation, with Cal-QL critic warmup and a twin-Q critic. Stage II: a shared VLA with per-task residual policies collects successful trajectories and their residual scales. Stage III: q20–q80 normalization, curriculum weighting and balanced weighting feed a weighted loss that updates the shared VLA." loading="lazy" decoding="async">
+          </button>
+        </div>
+        <figcaption><span class="fig-n">Figure 1.</span> Overview of RRRR. Stage I trains task-specific residual policies around frozen VLAs with unified IL–RL. Stage II collects successful composed-policy rollouts and their executed residual scales on a shared mixed-SFT VLA. Stage III uses the recorded scales to weight SFT of the shared VLA. </figcaption>
+      </figure>
+
+      <div class="stages">
+        <div class="stage">
+          <div class="num" aria-hidden="true">I</div>
+          <h4>Per-task residual adaptation</h4>
+          <p>Freeze a VLA that was fine-tuned for one task. Train a lightweight residual actor–critic around it on the real robot, guided first by demonstrations and human corrections, then increasingly by RL.</p>
+        </div>
+        <div class="stage">
+          <div class="num" aria-hidden="true">II</div>
+          <h4>Rollout collection</h4>
+          <p>On one shared VLA trained on mixed-task demonstrations, run each task's base + residual policy. Keep the successful rollouts and the residual scale that was executed at every step.</p>
+        </div>
+        <div class="stage">
+          <div class="num" aria-hidden="true">III</div>
+          <h4>Residual-guided weighted SFT</h4>
+          <p>Turn the recorded scales into curriculum weights and fine-tune the shared VLA on its own successful rollouts. The result is one standalone VLA that needs no residual at inference.</p>
+        </div>
+      </div>
+
+      <details class="method-details"><summary>Technical formulation<span>Control, optimization &amp; curriculum weighting</span></summary><h3>Fast–slow residual control</h3>
+      <p>Within an action chunk, a VLA runs open loop: execution errors accumulate and contact disturbances go unanswered until the next inference. RRRR splits inference into two synchronized paths. The <span class="tok-b">slow path</span> queries the frozen VLA at about 10 Hz for a chunk of \(N\) actions and caches them in a FIFO queue. At every control step, roughly \(N\) times faster, the <span class="tok-r">fast path</span> pops the current base action and a lightweight MLP adds a residual correction, scaled by the <span class="tok-s">dynamic residual scale</span>:</p>
+      <div class="eq">\[ a_t \;=\; \class{cb}{a_{\mathrm{base},t}} \;+\; \class{cs}{\bar{\Lambda}_{i,t}^{\mathrm{act}}}\, \class{cr}{a_{\mathrm{res},t}}, \qquad \class{cr}{a_{\mathrm{res},t}} = \pi\big(\mathcal{E}(s_t,\, a_{\mathrm{base},t},\, n);\, \theta_i\big) \tag{3} \]</div>
+      <p>The residual sees the base action and the intra-chunk index \(n\), so it knows how far the current chunk has progressed. Depth maps (estimated from RGB with Depth Anything V2) and force–torque readings feed only the residual path; the base VLA keeps its native observation interface.</p>
+
+      <h3>Dynamic residual scale</h3>
+      <p>The scale decides how much of the residual reaches the robot. After each step it is updated from two signals, clipped to \([0, \lambda_{\max}]\), and smoothed. The critic first scores the action built with the current scale, and only then is the scale for the next step computed, which avoids a circular dependence.</p>
+      <p><strong>Candidate-value modulation.</strong> The critic compares the scaled candidate against the base action alone. Only a positive estimated gain opens this gate.</p>
+      <div class="eq">\[ A_i^{\mathrm{cand}}(s_t) = Q_{\phi_i}(s_t, a_{\mathrm{cand},t}) - Q_{\phi_i}(s_t, \class{cb}{a_{\mathrm{base},t}}) \tag{4} \]</div>
+      <div class="eq">\[ s_{\mathrm{value},t} = 2\max\!\Big(0,\ \operatorname{sigmoid}\!\big(A_i^{\mathrm{cand}}(s_t)/T\big) - 0.5\Big) \tag{5} \]</div>
+      <p><strong>Stagnation escape.</strong> A learned critic can make that gate overly conservative. When batch-level critic progress over the last \(W\) learner updates falls below its moving reference \(\hat g_u\), the escape signal turns positive and strengthens correction exactly when learning slows.</p>
+      <div class="eq">\[ g_u = \bar{Q}_u - \bar{Q}_{u-W}, \qquad s_{\mathrm{escape},u} = \max\!\big(0,\ \max(0, \hat{g}_u) - g_u\big) \tag{6–8} \]</div>
+      <div class="eq">\[ \class{cs}{\Lambda_{i,t+1}^{\mathrm{raw}}} = \operatorname{clip}\!\big(\alpha_v\, s_{\mathrm{value},t} + \alpha_e\, s_{\mathrm{escape},u(t)},\ 0,\ \lambda_{\max}\big) \tag{9} \]</div>
+      <div class="eq">\[ \class{cs}{\bar{\Lambda}_{i,t+1}^{\mathrm{act}}} = \eta_{\Lambda}\, \class{cs}{\Lambda_{i,t+1}^{\mathrm{raw}}} + (1-\eta_{\Lambda})\, \class{cs}{\bar{\Lambda}_{i,t}^{\mathrm{act}}} \tag{10} \]</div>
+      <p>The scale executed at each step is logged with the transition. Stage III reuses it as a per-transition record of how strongly the residual had to intervene.</p>
+
+      <h3>Unified IL–RL optimization</h3>
+      <p>The residual actor blends imitation of human corrections with Soft Actor-Critic. The imitation weight \(\rho(t)\) starts at 1, which acts as pure behavior cloning and an implicit actor initialization, then follows a cosine decay to \(\rho_{\min}\).</p>
+      <div class="eq">\[ \mathcal{L}_{\mathrm{res}}(\theta_i) = \rho(t)\, \mathcal{L}_{\mathrm{IL}} + \big(1-\rho(t)\big)\, \mathcal{L}_{\mathrm{SAC}} \tag{11} \]</div>
+      <div class="eq">\[ \mathcal{L}_{\mathrm{IL}} = \mathbb{E}\Big[\big\lVert \class{cs}{\bar{\Lambda}_{i}^{\mathrm{act}}(s)}\, \class{cr}{\pi(s;\theta_i)} - \delta^{*} \big\rVert_2^2\Big], \qquad \delta^{*} = a_h - \class{cb}{\mu(s;\Phi_{\mathrm{base}})} \tag{12} \]</div>
+      <p>The expert buffer holds teleoperated demonstrations and online human-in-the-loop correction frames, which supervise exactly the failure-prone states the current policy reaches. Before online training, the critic is warmed up offline with Cal-QL. Online batches mix 50% online and 50% expert transitions in the style of RLPD, with an update-to-data ratio of 4 and DrQ-style image augmentation. The reward is a sparse success bonus with a step penalty, \(r_t = \mathbf{1}[\text{success}] - c\). Actor updates lock after \(K_{\text{lock}}\) consecutive autonomous successes once Q-value improvement drops below \(\epsilon_Q\).</p>
+
+      <h3>Multimodal residual encoder</h3>
+      <p>Four streams are encoded and each is modulated by the chunk-progress embedding through FiLM, with a residual connection and LayerNorm, before late fusion into a 512-dimensional latent \(\mathbf{z}_t\).</p>
+      <dl class="enc">
+        <dt>Chunk progress</dt>
+        <dd>\(\mathbf{f}_{\text{step}} = \mathrm{MLP}([\mathrm{PE}(n) \parallel n/N])\), a sinusoidal encoding of the intra-chunk index. It is also the FiLM anchor for the other streams.</dd>
+        <dt>Geometric intention</dt>
+        <dd>The offset \(\Delta p_n\) between the base action's target position and the current end-effector, encoded as direction, magnitude and raw offset.</dd>
+        <dt>Force–torque</dt>
+        <dd>A mean-centered high-frequency force–torque history, processed by a 1D-CNN.</dd>
+        <dt>Vision</dt>
+        <dd>RGB-D through ResNet-18 with CoordConv, where depth is estimated from RGB by Depth Anything V2.</dd>
+      </dl>
+
+      <h3>Residual-guided weighted SFT</h3>
+      <p>Each successful composed-policy rollout keeps the scale \(\lambda^{\mathrm{exec}}\) actually executed at every transition. Per task, the scales are normalized by the 20th and 80th percentiles, so the central range maps to \([0,1]\) and both tails clip.</p>
+      <div class="eq">\[ \lambda_{i,k}^{\mathrm{norm}} = \operatorname{clip}\!\left(\frac{\lambda_{i,k}^{\mathrm{exec}} - q_{20,i}}{q_{80,i} - q_{20,i} + \epsilon},\ 0,\ 1\right) \tag{20} \]</div>
+      <p>A Gaussian kernel centered at a curriculum peak \(\Lambda_{\mathrm{peak}}(v)\) turns each normalized scale into a weight. The peak rises monotonically over training: the shared model first learns from transitions that needed little correction, then shifts toward states where the residual intervened strongly.</p>
+      <div class="eq">\[ \omega_{i,k}^{\mathrm{raw}} = \exp\!\left(-\frac{\big(\lambda_{i,k}^{\mathrm{norm}} - \class{cs}{\Lambda_{\mathrm{peak}}(v)}\big)^2}{2\sigma^2}\right), \qquad \omega'_{i,k} = \min(\omega_{i,k}^{\mathrm{raw}}, \omega_{\max}) \tag{21} \]</div>
+
+      <div class="widget" id="curriculum">
+        <h4>How the curriculum reweights a batch</h4>
+        <p class="muted">Task-balanced transitions, weighted by normalized executed residual scale.</p>
+        <div class="controls">
+          <label>Weighted-SFT progress \(v\) <input type="range" id="c-v" min="0" max="100" value="20" step="1"><output id="c-v-o"></output></label>
+          <label>Kernel width \(\sigma\) <input type="range" id="c-s" min="8" max="50" value="18" step="1"><output id="c-s-o"></output></label>
+        </div>
+        <div class="plot-wrap"><svg id="curr" viewbox="0 0 760 374" role="img" aria-label="Curriculum weight curve and weighted transitions for four tasks"></svg></div>
+        <p class="readout" id="c-read" aria-live="polite"></p>
+        <p class="muted" style="font-size:.8125rem;margin:6px 0 0">Illustration with synthetic samples. The 20/80-percentile clipping places about a fifth of each task at 0 and at 1. The linear peak schedule and the σ range shown here are for illustration, not values reported in the paper.</p>
+      </div>
+
+      <p>Batches draw \(B/M\) samples per task, and weights are renormalized to mean one within each batch to keep gradient magnitudes consistent. The shared VLA is then fine-tuned with weighted flow matching on the executed actions:</p>
+      <div class="eq">\[ \hat{\omega}_b = \frac{\omega'_b}{\frac{1}{B}\sum_{j=1}^{B}\omega'_j + \epsilon}, \qquad \mathcal{L} = \mathbb{E}_{b\sim\mathcal{B}}\Big[\hat{\omega}_b\, \big\lVert v_{\Phi_{\mathrm{vla}}}(x_u, u, c) - v^{*}(x_u, a_{\mathrm{final}}) \big\rVert_2^2\Big] \tag{22–23} \]</div>
+      <p>Depth, force, the residual policy and the recorded scale are used only to generate and weight the data. The consolidated VLA runs on its native RGB, robot state and language inputs.</p>
+    </details></section>
+
+    <!-- ========== SINGLE-TASK ========== -->
+    <section id="single">
+      <p class="section-kicker">04 / Real-world evaluation</p>
+<h2>Rapid single-task adaptation</h2>
+      <p>Four Franka tasks test adaptation: Weight Insertion, Tissue Extraction, Balance Placement and Toy Suspension. Each task-specific backbone is LoRA-fine-tuned on 20 teleoperated demonstrations. A lightweight binary reward model, trained on human-labeled rollouts, supplies both the sparse training reward and automatic success evaluation.</p>
+
+      <figure>
+        <div class="plate">
+          <button class="figbtn" type="button" data-zoom aria-label="Enlarge Figure 2">
+            <img src="assets/figure-2.webp" width="1800" height="1607" alt="Rollout frames for four tasks. With the RRRR framework, Weight Insertion goes start, align, insert, done; Tissue Extraction goes start, grasp, pull, extracted; Balance Placement goes start, pick, carry, place; Toy Suspension goes start, grasp, lift, hang. The VLA-only baseline ends misaligned, misgrasped, slipped and missed respectively." loading="lazy" decoding="async">
+          </button>
+        </div>
+        <figcaption><span class="fig-n">Figure 2.</span> Rollouts of independently task-fine-tuned VLAs with the residual policy (left, green) and without it (right, red). With the residual, trajectories are smoother and goal-directed; the base VLA alone shows persistent positional drift. </figcaption>
+      </figure>
+
+      <div class="tbl-head">
+        <p class="tbl-cap"><span class="fig-n">Table I.</span> Success rate over 20 trials per task. Time is residual-training wall-clock time to the evaluated checkpoint.</p>
+        <div class="seg" role="group" aria-label="Base model">
+          <button type="button" data-bb="oft" aria-pressed="true">OpenVLA-OFT</button>
+          <button type="button" data-bb="pi" aria-pressed="false">π<sub>0.5</sub></button>
+        </div>
+      </div>
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="Rapid single-task adaptation table">
+        <table>
+          <thead>
+            <tr>
+<th>Task</th>
+<th>LoRA-SFT VLA</th>
+<th>+ Residual</th>
+<th>Δ</th>
+<th>Time (min)</th>
+</tr>
+          </thead>
+          <tbody id="t1"></tbody>
+        </table>
+      </div>
+
+      <p style="margin-top:28px">On OpenVLA-OFT, the LoRA-SFT policies fail every trial, and the residual raises the average to 91.25%. Weight Insertion and Tissue Extraction reach 100% after 3.15 and 4.35 minutes of residual learning. On π<sub>0.5</sub>, which already handles some tasks, the residual still lifts Weight Insertion from 5% to 100% and Toy Suspension from 10% to 70%.</p>
+    </section>
+
+    <!-- ========== ABLATION ========== -->
+    <section id="ablation">
+      <p class="section-kicker">05 / Ablation study</p>
+<h2>What each component does</h2>
+      <p>Ablations use the π<sub>0.5</sub> backbone on Pick-and-Place, where the robot puts a plush toy on a plate, and Weight Insertion. Every variant within a task uses identical demonstrations, expert buffers, optimization schedules and online training duration.</p>
+      <p class="tbl-cap" style="margin-top:28px"><span class="fig-n">Table II.</span> 30 trials per condition. Execution time in seconds, mean ± standard deviation over successful trials.</p>
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="What each component does table">
+        <table>
+          <thead>
+            <tr class="grp">
+<th></th>
+<th colspan="2">Pick-and-Place</th>
+<th colspan="2">Weight Insertion</th>
+</tr>
+            <tr>
+<th>Variant</th>
+<th>Success (%)</th>
+<th>Exec. time (s)</th>
+<th>Success (%)</th>
+<th>Exec. time (s)</th>
+</tr>
+          </thead>
+          <tbody>
+            <tr class="ours">
+<td><strong>RRRR (full)</strong></td>
+<td class="best">100.0</td>
+<td class="best">11.80 ± 0.83</td>
+<td class="best">100.0</td>
+<td class="best">4.78 ± 1.00</td>
+</tr>
+            <tr>
+<td>Fixed Λ</td>
+<td>73.3</td>
+<td>23.36 ± 19.36</td>
+<td>96.7</td>
+<td>6.01 ± 1.45</td>
+</tr>
+            <tr>
+<td>RL only (ρ ≡ 0)</td>
+<td>66.7</td>
+<td>17.86 ± 3.51</td>
+<td>63.3</td>
+<td>10.39 ± 2.79</td>
+</tr>
+            <tr>
+<td>Without s<sub>escape</sub>
+</td>
+<td>80.0</td>
+<td>15.88 ± 4.61</td>
+<td>83.3</td>
+<td>10.63 ± 1.68</td>
+</tr>
+            <tr>
+<td>Without force</td>
+<td>96.7</td>
+<td>13.45 ± 1.99</td>
+<td>96.7</td>
+<td>5.59 ± 1.75</td>
+</tr>
+            <tr>
+<td>Without depth</td>
+<td>100.0</td>
+<td>12.92 ± 0.69</td>
+<td>93.3</td>
+<td>7.03 ± 2.66</td>
+</tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:28px"><strong>Imitation guidance supports reliable learning.</strong> Training with RL alone reduces success by 33.3 and 36.7 percentage points. Removing the stagnation-escape term also lowers success on both tasks.</p>
+      <p><strong>Dynamic scaling improves control stability.</strong> A fixed scale stays near saturation on Weight Insertion but drops Pick-and-Place to 73.3%, and the spread of execution time grows from ±0.83 s to ±19.36 s.</p>
+      <p><strong>Auxiliary modalities improve execution efficiency.</strong> Without force or depth inputs, success stays at 93.3–100%, but execution takes 9–47% longer. Every ablation increases mean completion time.</p>
+    </section>
+
+    <!-- ========== MULTI-TASK ========== -->
+    <section id="multitask">
+      <p class="section-kicker">06 / Multi-task learning</p>
+<h2>One shared VLA for many tasks</h2>
+      <h3 style="margin-top:0">Real-world Franka</h3>
+      <p>A shared π<sub>0.5</sub> is first trained on 80 mixed demonstrations, 20 per task. Three adaptations are compared against it. <em>Base + Residual<sub>i</sub></em> keeps the shared VLA frozen and runs a separate residual per task at inference. <em>Weighted SFT</em> fine-tunes the shared VLA on 80 successful composed-policy rollouts with residual-scale weights. <em>Without weighting</em> uses exactly the same rollouts and settings with uniform weights.</p>
+      <p class="tbl-cap" style="margin-top:28px"><span class="fig-n">Table III(a).</span> Success rate (%), 20 trials per task. Bold marks the best standalone model.</p>
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="One shared VLA for many tasks table">
+        <table>
+          <thead>
+            <tr>
+<th>Task</th>
+<th>Base<br>(mixed SFT)</th>
+<th>Base +<br>Residual<sub>i</sub>
+</th>
+<th>Weighted SFT<br>(RRRR)</th>
+<th>Without<br>weighting</th>
+</tr>
+          </thead>
+          <tbody>
+            <tr>
+<td>Weight Insertion</td>
+<td>0</td>
+<td>100</td>
+<td class="best">100</td>
+<td>55</td>
+</tr>
+            <tr>
+<td>Tissue Extraction</td>
+<td>45</td>
+<td>100</td>
+<td class="best">90</td>
+<td>0</td>
+</tr>
+            <tr>
+<td>Balance Placement</td>
+<td>0</td>
+<td>85</td>
+<td class="best">70</td>
+<td>30</td>
+</tr>
+            <tr>
+<td>Toy Suspension</td>
+<td>0</td>
+<td>75</td>
+<td class="best">80</td>
+<td>10</td>
+</tr>
+            <tr class="avg">
+<td>Average</td>
+<td>11.25</td>
+<td>90.00</td>
+<td class="best">85.00</td>
+<td>23.75</td>
+</tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:28px">Uniform weighting of the residual-generated rollouts lifts the shared model only from 11.25% to 23.75%. Weighting the same rollouts by their executed residual scale lifts it to 85.00%, which isolates the effect of the weighting. Keeping a residual per task reaches 90.00% but requires running that residual at inference; Weighted SFT gets within five points with one standalone VLA.</p>
+
+      <h3 id="libero">LIBERO, 25 tasks trained jointly</h3>
+      <p>The benchmark takes all 10 long-horizon tasks of LIBERO-10 and a fixed 15-task subset of LIBERO-90 from three scenes: Kitchen (6), Living Room (5) and Study (4). All methods share the π<sub>0.5</sub> backbone, task split, optimization schedule and evaluation protocol, and every data-generation method gets the same budget of 50 generated trajectories per task. <a href="#r-dprl">DPRL</a> generates training data with diffusion-based RL; <a href="#r-pld">PLD</a> uses a state-independent residual bound and standard unweighted SFT. <a href="#r-rldg">RLDG</a> is not evaluated because its specialist stage needs real-robot human corrections outside the LIBERO protocol.</p>
+      <p class="tbl-cap" style="margin-top:28px"><span class="fig-n">Table III(b).</span> Success rate (%), 200 episodes per task.</p>
+      <div class="tbl-wrap" tabindex="0" role="region" aria-label="One shared VLA for many tasks table">
+        <table>
+          <thead>
+            <tr>
+<th>Method</th>
+<th>LIBERO-10<br>(10 tasks)</th>
+<th>LIBERO-90 subset<br>(15 tasks)</th>
+<th>Overall<br>(25 tasks)</th>
+</tr>
+          </thead>
+          <tbody>
+            <tr>
+<td>DPRL</td>
+<td>84.40</td>
+<td>85.67</td>
+<td>85.16</td>
+</tr>
+            <tr>
+<td>PLD</td>
+<td>83.30</td>
+<td>90.33</td>
+<td>87.52</td>
+</tr>
+            <tr class="ours">
+<td><strong>RRRR (weighted SFT)</strong></td>
+<td class="best">87.15</td>
+<td class="best">94.90</td>
+<td class="best">91.80</td>
+</tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="margin-top:28px">RRRR leads on both subsets and overall, by 6.64 points over DPRL and 4.28 points over PLD.</p>
+    </section>
+
+    <!-- ========== EMBODIMENT ========== -->
+    <section id="embodiment">
+      <p class="section-kicker">07 / Transfer</p>
+<h2>A second embodiment</h2>
+      <p>On the <a href="#r-zerith">ZERITH H1</a> wheeled bimanual platform, snack retrieval chains grasping, handover and placement: the right arm takes a snack from the shelf, passes it to the left arm, and the left arm puts it in a basket. The base VLA stays frozen and only the task-specific residual is trained, under the same action composition.</p>
+      <figure>
+        <div class="plate">
+          <button class="figbtn" type="button" data-zoom aria-label="Enlarge Figure 3">
+            <img src="assets/figure-3.webp" width="2400" height="548" alt="Four frames of the ZERITH H1 robot retrieving a snack bag from a wall display: start, grasp, handover between arms, and done with the snack in the basket." loading="lazy" decoding="async">
+          </button>
+        </div>
+        <figcaption><span class="fig-n">Figure 3.</span> Snack retrieval on ZERITH H1: start, grasp, handover and completion. </figcaption>
+      </figure>
+      <p>Across 20 trials, success rises from 0% with the frozen base VLA to 75% (15/20) with the residual. This is a single-task result and provides preliminary evidence that the residual mechanism carries over beyond the single-arm Franka setup without updating the base VLA.</p>
+    </section>
+
+    <!-- ========== LIMITATIONS ========== -->
+    <section id="limitations">
+      <p class="section-kicker">08 / Scope</p>
+<h2>Limitations</h2>
+      <p>The real-world study covers four primary Franka tasks, and the single-task H1 experiment is preliminary cross-embodiment evidence. Reported training times measure wall-clock adaptation speed rather than environment-step sample efficiency, and Table I does not compare against direct online optimization of the VLA parameters. Future work will look at shared residual representations, broader embodiments, and adaptation with less task-specific interaction.</p>
+    </section>
+
+    <!-- ========== BIBTEX ========== -->
+    <section id="citation">
+<h2 id="bibtex">Citation</h2>
+<p class="citation-note">Anonymous manuscript citation; author metadata will be updated for the public release.</p>
+<div class="bib-wrap">
+<pre class="bib" id="bib-text">@misc{rrrr2026,
+  title  = {{RRRR}: Rapid Real-World Residual RL for
+            Multi-Task VLA Adaptation},
+  author = {Anonymous},
+  year   = {2026},
+  note   = {Research manuscript}
+}</pre>
+        <button class="btn ghost copy" type="button" id="copy-bib" aria-label="Copy BibTeX" title="Copy BibTeX"><i data-lucide="copy"></i></button>
+      </div>
+    <p id="copy-status" class="status" role="status"></p></section>
+
+    <!-- ========== REFERENCES ========== -->
+    <section id="refs">
+      <details class="reference-details"><summary>References</summary><ol class="refs">
+        <li id="r-oft">M. J. Kim, C. Finn, P. Liang. <span class="t">Fine-tuning vision-language-action models: Optimizing speed and success.</span> <a href="https://arxiv.org/abs/2502.19645">arXiv:2502.19645</a>, 2025.</li>
+        <li id="r-pi05">Physical Intelligence, K. Black, N. Brown, et al. <span class="t">π<sub>0.5</sub>: A vision-language-action model with open-world generalization.</span> <a href="https://arxiv.org/abs/2504.16054">arXiv:2504.16054</a>, 2025.</li>
+        <li id="r-openvla">M. J. Kim, K. Pertsch, S. Karamcheti, et al. <span class="t">OpenVLA: An open-source vision-language-action model.</span> <a href="https://arxiv.org/abs/2406.09246">arXiv:2406.09246</a>, 2024.</li>
+        <li id="r-pld">W. Xiao, H. Lin, A. Peng, et al. <span class="t">Self-improving vision-language-action models with data generation via residual RL.</span> ICLR, 2026.</li>
+        <li id="r-dprl">R. Yang, H. Wei, R. Zhang, et al. <span class="t">Beyond human demonstrations: Diffusion-based reinforcement learning to generate data for VLA training.</span> <a href="https://arxiv.org/abs/2509.19752">arXiv:2509.19752</a>, 2025.</li>
+        <li id="r-rldg">C. Xu, Q. Li, J. Luo, S. Levine. <span class="t">RLDG: Robotic generalist policy distillation via reinforcement learning.</span> <a href="https://arxiv.org/abs/2412.09858">arXiv:2412.09858</a>, 2024.</li>
+        <li id="r-resip">L. Ankile, A. Simeonov, I. Shenfeld, M. Torne, P. Agrawal. <span class="t">From imitation to refinement: Residual RL for precise assembly.</span> ICRA, 2025.</li>
+        <li id="r-resfit">L. Ankile, Z. Jiang, R. Duan, G. Shi, P. Abbeel, A. Nagabandi. <span class="t">Residual off-policy RL for finetuning behavior cloning policies.</span> <a href="https://arxiv.org/abs/2509.19301">arXiv:2509.19301</a>, 2025.</li>
+        <li id="r-hilserl">J. Luo, C. Xu, J. Wu, S. Levine. <span class="t">Precise and dexterous robotic manipulation via human-in-the-loop reinforcement learning.</span> Science Robotics 10(105), 2025.</li>
+        <li id="r-crdagger">X. Xu, Y. Hou, C. Xin, Z. Liu, S. Song. <span class="t">Compliant residual DAgger: Improving real-world contact-rich manipulation with human corrections.</span> <a href="https://arxiv.org/abs/2506.16685">arXiv:2506.16685</a>, 2025.</li>
+        <li id="r-calql">M. Nakamoto, Y. Zhai, A. Singh, et al. <span class="t">Cal-QL: Calibrated offline RL pre-training for efficient online fine-tuning.</span> NeurIPS, 2023.</li>
+        <li id="r-rlpd">P. J. Ball, L. Smith, I. Kostrikov, S. Levine. <span class="t">Efficient online reinforcement learning with offline data.</span> ICML, 2023.</li>
+        <li id="r-drq">D. Yarats, I. Kostrikov, R. Fergus. <span class="t">Image augmentation is all you need: Regularizing deep reinforcement learning from pixels.</span> ICLR, 2021.</li>
+        <li id="r-chord">W. Zhang, Y. Xie, Y. Sun, et al. <span class="t">On-policy RL meets off-policy experts: Harmonizing supervised fine-tuning and reinforcement learning via dynamic weighting.</span> ICLR, 2026.</li>
+        <li id="r-dav2">L. Yang, B. Kang, Z. Huang, et al. <span class="t">Depth Anything V2.</span> <a href="https://arxiv.org/abs/2406.09414">arXiv:2406.09414</a>, 2024.</li>
+        <li id="r-libero">B. Liu, Y. Zhu, C. Gao, et al. <span class="t">LIBERO: Benchmarking knowledge transfer for lifelong robot learning.</span> <a href="https://arxiv.org/abs/2306.03310">arXiv:2306.03310</a>, 2023.</li>
+        <li id="r-lora">E. J. Hu, Y. Shen, P. Wallis, et al. <span class="t">LoRA: Low-rank adaptation of large language models.</span> ICLR, 2022.</li>
+        <li id="r-zerith">Zerith Robotics. <span class="t">ZERITH H1: Wheeled-arm robot.</span> <a href="https://www.zerith.ai/arm">zerith.ai/arm</a>, 2025.</li>
+      </ol>
+    </details></section>
+  </main>
+</div>
+
+<footer><div>
+<a class="wordmark" href="#top">RRRR</a><p>Rapid Real-World Residual RL for Multi-Task VLA Adaptation</p>
+<span>Anonymous research project · 2026</span>
+</div>
+<a href="#top" class="back-top" aria-label="Back to top" title="Back to top"><i data-lucide="arrow-up"></i></a></footer>
+
+<dialog class="lb" id="lb" aria-label="Enlarged figure">
+  <div class="lb-bar">
+<span id="lb-hint">Select the image to view it at full size</span><button type="button" id="lb-close">Close</button>
+</div>
+  <div class="lb-inner" id="lb-inner"><img id="lb-img" alt=""></div>
+</dialog>
+
+<script src="assets/research.js" defer></script>
+<script src="assets/lucide.min.js" defer></script><script src="assets/site.js" defer></script>
+</body>
+</html>
